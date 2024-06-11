@@ -2,6 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
+
+@font-face {
+  font-family: 'CHIBOLD';
+  src: url('/fonts/CHIBOLD.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Satoshi';
+  src: url('/fonts/Satoshi-Regular.woff2') format('woff2'),
+       url('/fonts/Satoshi-Regular.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Satoshi';
+  src: url('/fonts/Satoshi-Bold.woff') format('woff');
+  font-weight: bold;
+  font-style: normal;
+}
+
+body {
+  font-family: 'Satoshi', sans-serif;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
+
+body {
+  font-family: 'Satoshi', sans-serif;
+}
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
@@ -31,3 +65,40 @@ body {
     text-wrap: balance;
   }
 }
+
+.custom-blue-button {
+  background-color: rgb(48, 113, 239);
+  transition: background-color 0.3s ease;
+}
+
+.custom-blue-button:hover {
+  background-color: rgb(32, 95, 204);
+}
+
+.top-20 {
+  top: 7rem!important;
+}
+
+.rounded-xl {
+  border-radius: 2rem;
+}
+
+
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+body {
+  font-family: 'Satoshi', sans-serif;
+}
+
