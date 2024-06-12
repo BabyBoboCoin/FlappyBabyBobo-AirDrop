@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
+import WalletConnect from './WalletConnect'; // Adjust the import path since it's in the same folder
 
 const Game = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -9,10 +10,17 @@ const Game = () => {
     return localStorage.getItem('highScore') ? parseInt(localStorage.getItem('highScore')) : 0;
   });
   const [gameState, setGameState] = useState('start'); // 'start', 'playing', 'restart'
+  const [walletAddress, setWalletAddress] = useState<string>('');
   const jumpSoundRef = useRef<HTMLAudioElement | null>(null);
   const gameOverSoundRef = useRef<HTMLAudioElement | null>(null);
   const coinSoundRef = useRef<HTMLAudioElement | null>(null);
   const [collectedCoins, setCollectedCoins] = useState(0); // Use state to manage coin count
+
+  // Function to handle wallet connect
+  const handleConnect = (address: string) => {
+    console.log(`Wallet connected: ${address}`); // Debugging
+    setWalletAddress(address);
+  };
 
   useEffect(() => {
     console.log(`Game State: ${gameState}`); // Debugging game state
@@ -48,7 +56,7 @@ const Game = () => {
     let pipes = [];
     let coins = [];
     let frame = 0;
-    const pipeWidth = 20;
+    const pipeWidth = 40;
     const initialPipeGap = 400; // Initial gap between pipes
     const minPipeGap = 160; // Minimum gap between pipes
     let pipeGap = initialPipeGap;
@@ -152,13 +160,17 @@ const Game = () => {
           bird.y += bird.velocity;
 
           if (checkCollision()) {
+            console.log("Game over: Collision detected");
             setGameState('restart');
             playGameOverSound();
             if (score > highScore) {
+              console.log("New high score achieved:", score);
               setHighScore(score);
               localStorage.setItem('highScore', score.toString());
+              if (walletAddress) {
+                submitHighScore(walletAddress, score);
+              }
             }
-            console.log("Game Over. Final Coins Collected:", collectedCoins); // Debugging
             return;
           }
 
@@ -294,10 +306,37 @@ const Game = () => {
 
   useEffect(() => {
     if (gameState === 'restart' && score > highScore) {
+      console.log("Updating high score in state and localStorage");
       setHighScore(score);
       localStorage.setItem('highScore', score.toString());
+      if (walletAddress) {
+        console.log("Submitting high score to the server");
+        submitHighScore(walletAddress, score);
+      }
     }
-  }, [gameState, score, highScore]);
+  }, [gameState, score, highScore, walletAddress]);
+
+  const submitHighScore = async (walletAddress: string, score: number) => {
+    console.log('submitHighScore called with:', { walletAddress, score }); // Debugging
+    try {
+      const response = await fetch('/api/highscores', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ walletAddress, score }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        console.log('Highscore successfully recorded');
+      } else {
+        console.error('Failed to record highscore:', data.message);
+      }
+    } catch (error) {
+      console.error('Error submitting highscore:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative game-container" style={{ background: 'linear-gradient(rgb(161, 227, 255) 0%, rgba(58, 121, 187, 0.98) 100%)' }}>
@@ -353,6 +392,7 @@ const Game = () => {
         >
           Flappy BabyBobo
         </h1>
+        <WalletConnect onConnect={handleConnect} />
       </div>
       <div className="game-content">
         <canvas ref={canvasRef} className="border border-black"></canvas>
