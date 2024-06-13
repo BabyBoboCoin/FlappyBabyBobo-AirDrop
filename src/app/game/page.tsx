@@ -25,9 +25,9 @@ const Game = () => {
   const [shieldActive, setShieldActive] = useState(false); // Use state to manage shield activation
 
   const currentSpeed = useRef(2); // Normal speed
-  const slowSpeed = 1;
-  const fastSpeed = 4;
-  const normalSpeed = 2;
+  const slowSpeed = 2;
+  const fastSpeed = 6;
+  const normalSpeed = 3;
 
   // Function to handle wallet connect
   const handleConnect = (address: string) => {
@@ -76,8 +76,8 @@ const Game = () => {
     let shieldItems = [];
     let frame = 0;
     const pipeWidth = 30;
-    const initialPipeGap = 500; // Initial gap between pipes
-    const minPipeGap = 200; // Minimum gap between pipes
+    const initialPipeGap = 400; // Initial gap between pipes
+    const minPipeGap = 150; // Minimum gap between pipes
     let pipeGap = initialPipeGap;
     const pipeFrequency = 150; // frames between pipes
     const itemFrequency = 500; // frames between item spawns
