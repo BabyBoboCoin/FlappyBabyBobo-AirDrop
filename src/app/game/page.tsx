@@ -14,7 +14,20 @@ const Game = () => {
   const jumpSoundRef = useRef<HTMLAudioElement | null>(null);
   const gameOverSoundRef = useRef<HTMLAudioElement | null>(null);
   const coinSoundRef = useRef<HTMLAudioElement | null>(null);
+  const weedSoundRef = useRef<HTMLAudioElement | null>(null);
+  const redBullSoundRef = useRef<HTMLAudioElement | null>(null);
+  const shieldSoundRef = useRef<HTMLAudioElement | null>(null);
   const [collectedCoins, setCollectedCoins] = useState(0); // Use state to manage coin count
+  const [specialItemActive, setSpecialItemActive] = useState(false); // Use state to manage special item activation
+  const [specialItemCountdown, setSpecialItemCountdown] = useState(0); // Use state for countdown
+  const [speedItemActive, setSpeedItemActive] = useState(false); // Use state to manage speed item activation
+  const [speedItemCountdown, setSpeedItemCountdown] = useState(0); // Use state for countdown
+  const [shieldActive, setShieldActive] = useState(false); // Use state to manage shield activation
+
+  const currentSpeed = useRef(2); // Normal speed
+  const slowSpeed = 1;
+  const fastSpeed = 4;
+  const normalSpeed = 2;
 
   // Function to handle wallet connect
   const handleConnect = (address: string) => {
@@ -28,6 +41,9 @@ const Game = () => {
     jumpSoundRef.current = new Audio('/sounds/jump.mp3');
     gameOverSoundRef.current = new Audio('/sounds/gameover.mp3');
     coinSoundRef.current = new Audio('/sounds/coin.mp3');
+    weedSoundRef.current = new Audio('/sounds/Weed.mp3');
+    redBullSoundRef.current = new Audio('/sounds/RedBull.mp3');
+    shieldSoundRef.current = new Audio('/sounds/shield.mp3');
 
     const canvas = canvasRef.current;
     const context = canvas?.getContext('2d');
@@ -55,12 +71,16 @@ const Game = () => {
 
     let pipes = [];
     let coins = [];
+    let specialItems = [];
+    let speedItems = [];
+    let shieldItems = [];
     let frame = 0;
-    const pipeWidth = 40;
-    const initialPipeGap = 400; // Initial gap between pipes
-    const minPipeGap = 160; // Minimum gap between pipes
+    const pipeWidth = 30;
+    const initialPipeGap = 500; // Initial gap between pipes
+    const minPipeGap = 200; // Minimum gap between pipes
     let pipeGap = initialPipeGap;
     const pipeFrequency = 150; // frames between pipes
+    const itemFrequency = 500; // frames between item spawns
 
     const babyBoboImage = new Image();
     babyBoboImage.src = '/images/BabyBobo-Flying.png'; // Ensure this path is correct
@@ -68,12 +88,45 @@ const Game = () => {
     const gameOverImage = new Image();
     gameOverImage.src = '/images/gameover.png';
 
-    babyBoboImage.onload = () => {
+    const specialItemImage = new Image();
+    specialItemImage.src = '/images/Weed.png'; // Green item image
+
+    const speedItemImage = new Image();
+    speedItemImage.src = '/images/RedBull.png'; // White item image
+
+    const shieldItemImage = new Image();
+    shieldItemImage.src = '/images/shield.png'; // Orange item image
+
+    const shieldOverlayImage = new Image();
+    shieldOverlayImage.src = '/images/Shield.png'; // Shield overlay image
+
+    const images = [babyBoboImage, gameOverImage, specialItemImage, speedItemImage, shieldItemImage, shieldOverlayImage];
+    let imagesLoaded = 0;
+
+    const onImageLoad = () => {
+      imagesLoaded++;
+      if (imagesLoaded === images.length) {
+        startGame();
+      }
+    };
+
+    images.forEach((image) => {
+      image.onload = onImageLoad;
+      image.onerror = () => {
+        console.error('Failed to load image:', image.src);
+      };
+    });
+
+    const startGame = () => {
       const imageRadius = Math.max(babyBoboImage.naturalWidth, babyBoboImage.naturalHeight) / 2;
       bird.radius = imageRadius;
 
       const drawBird = () => {
         context.drawImage(babyBoboImage, bird.x - babyBoboImage.naturalWidth / 2, bird.y - babyBoboImage.naturalHeight / 2);
+        if (shieldActive) {
+          const shieldSize = bird.radius * 2.5;
+          context.drawImage(shieldOverlayImage, bird.x - shieldSize / 2, bird.y - shieldSize / 2, shieldSize, shieldSize);
+        }
       };
 
       const drawPipes = () => {
@@ -81,7 +134,7 @@ const Game = () => {
           context.fillStyle = 'green';
           context.fillRect(pipe.x, pipe.y, pipeWidth, pipe.height);
           context.fillRect(pipe.x, pipe.y + pipe.height + pipeGap, pipeWidth, canvasHeight - pipe.y - pipe.height - pipeGap);
-          pipe.x -= 2;
+          pipe.x -= currentSpeed.current;
         });
 
         pipes = pipes.filter(pipe => pipe.x + pipeWidth > 0);
@@ -110,14 +163,46 @@ const Game = () => {
           context.beginPath();
           context.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
           context.fill();
-          coin.x -= 2;
+          coin.x -= currentSpeed.current;
         });
 
         coins = coins.filter(coin => coin.x + coin.radius > 0);
       };
 
+      const drawSpecialItems = () => {
+        specialItems.forEach(item => {
+          context.drawImage(specialItemImage, item.x - item.radius, item.y - item.radius, item.radius * 2, item.radius * 2);
+          item.x -= currentSpeed.current;
+        });
+
+        specialItems = specialItems.filter(item => item.x + item.radius > 0);
+      };
+
+      const drawSpeedItems = () => {
+        speedItems.forEach(item => {
+          context.drawImage(speedItemImage, item.x - item.radius, item.y - item.radius, item.radius * 2, item.radius * 2);
+          item.x -= currentSpeed.current;
+        });
+
+        speedItems = speedItems.filter(item => item.x + item.radius > 0);
+      };
+
+      const drawShieldItems = () => {
+        shieldItems.forEach(item => {
+          context.drawImage(shieldItemImage, item.x - item.radius, item.y - item.radius, item.radius * 2, item.radius * 2);
+          item.x -= currentSpeed.current;
+        });
+
+        shieldItems = shieldItems.filter(item => item.x + item.radius > 0);
+      };
+
       const checkCollision = () => {
         if (bird.y + bird.radius > canvasHeight || bird.y - bird.radius < 0) {
+          if (shieldActive) {
+            setShieldActive(false);
+            playShieldSound();
+            return false; // Shield protects from collision
+          }
           console.log("Collision with ground or ceiling");
           return true;
         }
@@ -126,6 +211,11 @@ const Game = () => {
           const inPipeXRange = bird.x + bird.radius > pipe.x && bird.x - bird.radius < pipe.x + pipeWidth;
           const inPipeYRange = bird.y - bird.radius < pipe.y + pipe.height || bird.y + bird.radius > pipe.y + pipe.height + pipeGap;
           if (inPipeXRange && inPipeYRange) {
+            if (shieldActive) {
+              setShieldActive(false);
+              playShieldSound();
+              return false; // Shield protects from collision
+            }
             console.log("Collision with pipe");
             return true;
           }
@@ -148,6 +238,61 @@ const Game = () => {
         });
       };
 
+      const checkSpecialItemCollection = () => {
+        specialItems = specialItems.filter(item => {
+          const distX = bird.x - item.x;
+          const distY = bird.y - item.y;
+          const distance = Math.sqrt(distX * distX + distY * distY);
+
+          if (distance < bird.radius + item.radius) {
+            if (speedItemActive) {
+              setSpeedItemActive(false);
+              setSpeedItemCountdown(0);
+            }
+            setSpecialItemActive(true);
+            setSpecialItemCountdown(10);
+            playWeedSound();
+            return false; // Special item is collected
+          }
+          return true; // Special item remains on the screen
+        });
+      };
+
+      const checkSpeedItemCollection = () => {
+        speedItems = speedItems.filter(item => {
+          const distX = bird.x - item.x;
+          const distY = bird.y - item.y;
+          const distance = Math.sqrt(distX * distX + distY * distY);
+
+          if (distance < bird.radius + item.radius) {
+            if (specialItemActive) {
+              setSpecialItemActive(false);
+              setSpecialItemCountdown(0);
+            }
+            setSpeedItemActive(true);
+            setSpeedItemCountdown(10);
+            playRedBullSound();
+            return false; // Speed item is collected
+          }
+          return true; // Speed item remains on the screen
+        });
+      };
+
+      const checkShieldItemCollection = () => {
+        shieldItems = shieldItems.filter(item => {
+          const distX = bird.x - item.x;
+          const distY = bird.y - item.y;
+          const distance = Math.sqrt(distX * distX + distY * distY);
+
+          if (distance < bird.radius + item.radius) {
+            setShieldActive(true);
+            playShieldSound();
+            return false; // Shield item is collected
+          }
+          return true; // Shield item remains on the screen
+        });
+      };
+
       const gameLoop = () => {
         context.clearRect(0, 0, canvasWidth, canvasHeight);
 
@@ -155,6 +300,9 @@ const Game = () => {
           drawBird();
           drawPipes();
           drawCoins();
+          drawSpecialItems();
+          drawSpeedItems();
+          drawShieldItems();
 
           bird.velocity += bird.gravity;
           bird.y += bird.velocity;
@@ -175,6 +323,9 @@ const Game = () => {
           }
 
           checkCoinCollection();
+          checkSpecialItemCollection();
+          checkSpeedItemCollection();
+          checkShieldItemCollection();
 
           frame++;
           const newScore = Math.floor(frame / 10);
@@ -185,10 +336,48 @@ const Game = () => {
             pipeGap -= 5; // Adjust the decrement value
           }
 
+          // Spawn special items, speed items, or shield items
+          if (frame % itemFrequency === 0) {
+            const itemY = Math.random() * (canvasHeight - 40) + 20; // Random position within canvas
+            const spawnItemType = Math.random();
+
+            if (spawnItemType < 0.33 && speedItems.length === 0) {
+              speedItems.push({
+                x: canvasWidth,
+                y: itemY,
+                radius: 20 // Increased radius of the speed item
+              });
+            } else if (spawnItemType < 0.66 && specialItems.length === 0) {
+              specialItems.push({
+                x: canvasWidth,
+                y: itemY,
+                radius: 20 // Increased radius of the special item
+              });
+            } else if (shieldItems.length === 0) {
+              shieldItems.push({
+                x: canvasWidth,
+                y: itemY,
+                radius: 20 // Increased radius of the shield item
+              });
+            }
+          }
+
           context.fillStyle = 'white';
           context.font = '20px Arial';
           context.fillText(`Score: ${newScore}m`, canvasWidth - 150, 30); // Display score on the right
           context.fillText(`Coins: ${collectedCoins}`, canvasWidth - 150, 60); // Display collected coins
+
+          if (specialItemActive) {
+            context.fillText(`Slow Time: ${specialItemCountdown}s`, canvasWidth - 150, 90); // Display slow time countdown
+          }
+
+          if (speedItemActive) {
+            context.fillText(`Fast Time: ${speedItemCountdown}s`, canvasWidth - 150, 120); // Display fast time countdown
+          }
+
+          if (shieldActive) {
+            context.fillText(`Shield: Active`, canvasWidth - 150, 150); // Display shield status
+          }
 
           requestAnimationFrame(gameLoop);
         } else if (gameState === 'start') {
@@ -223,11 +412,20 @@ const Game = () => {
         bird.velocity = 0;
         pipes = [];
         coins = [];
+        specialItems = [];
+        speedItems = [];
+        shieldItems = [];
         frame = 0;
         setScore(0);
         setCollectedCoins(0); // Reset collected coins
+        setSpecialItemActive(false); // Reset special item status
+        setSpecialItemCountdown(0); // Reset special item countdown
+        setSpeedItemActive(false); // Reset speed item status
+        setSpeedItemCountdown(0); // Reset speed item countdown
+        setShieldActive(false); // Reset shield status
         console.log("Game reset. Coins Collected:", collectedCoins); // Debugging
         pipeGap = initialPipeGap; // Reset the gap to the initial value
+        currentSpeed.current = normalSpeed; // Reset speed to normal
         setGameState('playing');
       };
 
@@ -302,7 +500,71 @@ const Game = () => {
       }
     };
 
+    const playWeedSound = () => {
+      const weedSound = weedSoundRef.current;
+      if (weedSound) {
+        weedSound.currentTime = 0; // Reset to start
+        weedSound.play();
+      }
+    };
+
+    const playRedBullSound = () => {
+      const redBullSound = redBullSoundRef.current;
+      if (redBullSound) {
+        redBullSound.currentTime = 0; // Reset to start
+        redBullSound.play();
+      }
+    };
+
+    const playShieldSound = () => {
+      const shieldSound = shieldSoundRef.current;
+      if (shieldSound) {
+        shieldSound.currentTime = 0; // Reset to start
+        shieldSound.play();
+      }
+    };
+
   }, [gameState]);
+
+  useEffect(() => {
+    // Handle special item countdown
+    let countdownInterval;
+    if (specialItemActive) {
+      currentSpeed.current = slowSpeed; // Slow down the speed
+      countdownInterval = setInterval(() => {
+        setSpecialItemCountdown(prevCountdown => {
+          if (prevCountdown <= 1) {
+            setSpecialItemActive(false);
+            currentSpeed.current = normalSpeed; // Restore normal speed
+            clearInterval(countdownInterval);
+            return 0;
+          }
+          return prevCountdown - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(countdownInterval);
+  }, [specialItemActive]);
+
+  useEffect(() => {
+    // Handle speed item countdown
+    let countdownInterval;
+    if (speedItemActive) {
+      currentSpeed.current = fastSpeed; // Increase the speed
+      countdownInterval = setInterval(() => {
+        setSpeedItemCountdown(prevCountdown => {
+          if (prevCountdown <= 1) {
+            setSpeedItemActive(false);
+            currentSpeed.current = normalSpeed; // Restore normal speed
+            clearInterval(countdownInterval);
+            return 0;
+          }
+          return prevCountdown - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(countdownInterval);
+  }, [speedItemActive]);
 
   useEffect(() => {
     if (gameState === 'restart' && score > highScore) {
@@ -420,10 +682,52 @@ const Game = () => {
           textShadow: '3px 0.1px 0px #000000',
           color: '#FFFFFF'
         }}>Coins: {collectedCoins}</p>
+        {specialItemActive && (
+          <p className="mt-2 text-green-500 w-full text-center" style={{ 
+            fontFamily: 'CHIBOLD',
+            fontWeight: 700,
+            fontSize: '1.5em',
+            lineHeight: '1.1em',
+            WebkitTextStrokeWidth: '0.1px',
+            WebkitTextStrokeColor: '#000',
+            stroke: '#000',
+            textShadow: '3px 0.1px 0px #000000',
+            color: '#FFFFFF'
+          }}>Slow Time: {specialItemCountdown}s</p>
+        )}
+        {speedItemActive && (
+          <p className="mt-2 text-white w-full text-center" style={{ 
+            fontFamily: 'CHIBOLD',
+            fontWeight: 700,
+            fontSize: '1.5em',
+            lineHeight: '1.1em',
+            WebkitTextStrokeWidth: '0.1px',
+            WebkitTextStrokeColor: '#000',
+            stroke: '#000',
+            textShadow: '3px 0.1px 0px #000000',
+            color: '#FFFFFF'
+          }}>Fast Time: {speedItemCountdown}s</p>
+        )}
+        {shieldActive && (
+          <p className="mt-2 text-orange-500 w-full text-center" style={{ 
+            fontFamily: 'CHIBOLD',
+            fontWeight: 700,
+            fontSize: '1.5em',
+            lineHeight: '1.1em',
+            WebkitTextStrokeWidth: '0.1px',
+            WebkitTextStrokeColor: '#000',
+            stroke: '#000',
+            textShadow: '3px 0.1px 0px #000000',
+            color: '#FFFFFF'
+          }}>Shield: Active</p>
+        )}
       </div>
       <audio ref={jumpSoundRef} src="/sounds/jump.mp3"></audio>
       <audio ref={gameOverSoundRef} src="/sounds/gameover.mp3"></audio>
       <audio ref={coinSoundRef} src="/sounds/coin.mp3"></audio>
+      <audio ref={weedSoundRef} src="/sounds/Weed.mp3"></audio>
+      <audio ref={redBullSoundRef} src="/sounds/RedBull.mp3"></audio>
+      <audio ref={shieldSoundRef} src="/sounds/shield.mp3"></audio>
     </div>
   );
 };
